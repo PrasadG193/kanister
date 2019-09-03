@@ -6,78 +6,113 @@ actions:
   backup:
     type: StatefulSet
     outputArtifacts:
-      cloudObject:
+      backupInfo:
         keyValue:
-          path: '/mongodb-replicaset-backups/{{ .StatefulSet.Name }}/{{ toDate "2006-01-02T15:04:05.999999999Z07:00" .Time  | date "2006-01-02T15-04-05" }}/rs_backup.gz'
+          repo: "s3:s3.amazonaws.com/{{ .Profile.Location.Bucket }}/mongodb-replicaset-backups/{{ .StatefulSet.Name }}/rs_backup"
+          snapshotid: "{{ .Phases.backupSnapshot.Output.snapshotid }}"
     phases:
-    - func: KubeTask
-      name: takeConsistentBackup
+    - func: PrepareData
+      name: backupSnapshot
       args:
-        image: kanisterio/mongo-sidecar:0.20.0     
+        image: kanisterio/kanister-tools:0.21.0
         namespace: "{{ .StatefulSet.Namespace }}"
+        volumes:
+          datadir-{{ .StatefulSet.Name }}-0: "/db"
         command:
           - bash
           - -o
           - errexit
           - -o
+          - xtrace
+          - -o
           - pipefail
           - -c
           - |
-            host_sfx=".{{ .StatefulSet.Name }}.{{ .StatefulSet.Namespace }}.svc.cluster.local"
-            host="${REPLICA_SET}/{{ range $i,$p :=.StatefulSet.Pods }}{{- if $i }},{{- end }}{{- $p -}}${host_sfx}{{ end }}"
-            dump_cmd=(mongodump --oplog --gzip --archive --readPreference=secondaryPreferred --host=my-release-kanister-mongodb-replicaset --port=27017)
-            dump_cmd+=(--host "${host}")
-            if [[ -n "${MONGO_ADMIN_USER+set}" ]]
-            then
-                dump_cmd+=(-u "${MONGO_ADMIN_USER}" -p "${MONGO_ADMIN_PASSWORD}")
+            set +o xtrace
+            export AWS_SECRET_ACCESS_KEY="{{ .Profile.Credential.KeyPair.Secret }}"
+            export AWS_ACCESS_KEY_ID="{{ .Profile.Credential.KeyPair.ID }}"
+            export RESTIC_PASSWORD=restic-12345
+            set -o xtrace
+
+            # Check if repository is not initialized
+            if ! backup=$(restic -r s3:s3.amazonaws.com/{{ .Profile.Location.Bucket }}/mongodb-replicaset-backups/{{ .StatefulSet.Name }}/rs_backup backup /db --json); then
+                restic -r s3:s3.amazonaws.com/{{ .Profile.Location.Bucket }}/mongodb-replicaset-backups/{{ .StatefulSet.Name }}/rs_backup init
+                backup=$(restic -r s3:s3.amazonaws.com/{{ .Profile.Location.Bucket }}/mongodb-replicaset-backups/{{ .StatefulSet.Name }}/rs_backup backup /db --json)
             fi
-            ${dump_cmd[@]} | kando location push --profile '{{ toJson .Profile }}' --path '/mongodb-replicaset-backups/{{ .StatefulSet.Name }}/{{ toDate "2006-01-02T15:04:05.999999999Z07:00" .Time  | date "2006-01-02T15-04-05" }}/rs_backup.gz' -
+
+            restic -r s3:s3.amazonaws.com/{{ .Profile.Location.Bucket }}/mongodb-replicaset-backups/{{ .StatefulSet.Name }}/rs_backup snapshots
+            snapshotid=$(echo ${backup} | grep -o "\"snapshot_id\":\"[a-zA-z0-9]*\"" | cut -d ":" -f2 | tr -d '"')
+            kando output snapshotid ${snapshotid}
   restore:
     type: StatefulSet
     inputArtifactNames:
-      - cloudObject
+      - backupInfo
     phases:
-    - func: KubeTask
-      name: pullFromBlobStore
+    - func: ScaleWorkload
+      name: ShutdownApplication
       args:
-        image: kanisterio/mongo-sidecar:0.20.0     
         namespace: "{{ .StatefulSet.Namespace }}"
+        kind: statefulset
+        replicas: 0
+    - func: PrepareData
+      name: restoreFromSnapshot
+      args:
+        image: kanisterio/kanister-tools:0.21.0
+        namespace: "{{ .StatefulSet.Namespace }}"
+        volumes:
+          datadir-{{ .StatefulSet.Name }}-0: "/db"
         command:
           - bash
           - -o
           - errexit
           - -o
+          - xtrace
+          - -o
           - pipefail
           - -c
           - |
-            host_sfx=".{{ .StatefulSet.Name }}.{{ .StatefulSet.Namespace }}.svc.cluster.local"
-            host="${REPLICA_SET}/{{ range $i,$p :=.StatefulSet.Pods }}{{- if $i }},{{- end }}{{- $p -}}${host_sfx}{{ end }}"
-            restore_cmd=(mongorestore --gzip --archive --oplogReplay --drop --host=my-release-kanister-mongodb-replicaset --port=27017)
-            restore_cmd+=(--host "${host}")
-            if [[ -n "${MONGO_ADMIN_USER+set}" ]]
-            then
-                restore_cmd+=(-u "${MONGO_ADMIN_USER}" -p "${MONGO_ADMIN_PASSWORD}")
-            fi
-            kando location pull --profile '{{ toJson .Profile }}' --path '{{ .ArtifactsIn.cloudObject.KeyValue.path }}' - | ${restore_cmd[@]}
+            set +o xtrace
+            export AWS_SECRET_ACCESS_KEY="{{ .Profile.Credential.KeyPair.Secret }}"
+            export AWS_ACCESS_KEY_ID="{{ .Profile.Credential.KeyPair.ID }}"
+            export RESTIC_PASSWORD=restic-12345
+            set -o xtrace
+            
+            restic -r {{ .ArtifactsIn.backupInfo.KeyValue.repo }} snapshots
+            restic -r {{ .ArtifactsIn.backupInfo.KeyValue.repo }} restore {{ .ArtifactsIn.backupInfo.KeyValue.snapshotid }} --target /db --path /db
+
+    - func: ScaleWorkload
+      name: restartPod
+      args:
+        kind: statefulset
+        name: '{{ .StatefulSet.Name }}'
+        namespace: '{{ .StatefulSet.Namespace }}'
+        replicas: 3
   delete:
     type: StatefulSet
     inputArtifactNames:
-      - cloudObject
+      - backupInfo
     phases:
     - func: KubeTask
-      name: deleteFromBlobStore
+      name: deleteSnapshot
       args:
         namespace: "{{ .StatefulSet.Namespace }}"
-        image: kanisterio/mongo-sidecar:0.20.0     
+        image: kanisterio/kanister-tools:0.21.0
         command:
           - bash
           - -o
           - errexit
           - -o
+          - xtrace
+          - -o
           - pipefail
           - -c
           - |
-            s3_path="{{ .ArtifactsIn.cloudObject.KeyValue.path }}"
+            set +o xtrace
             export AWS_SECRET_ACCESS_KEY="{{ .Profile.Credential.KeyPair.Secret }}"
             export AWS_ACCESS_KEY_ID="{{ .Profile.Credential.KeyPair.ID }}"
-            kando location delete --profile '{{ toJson .Profile }}' --path ${s3_path}
+            export RESTIC_PASSWORD=restic-12345
+            set -o xtrace
+
+            restic -r {{ .ArtifactsIn.backupInfo.KeyValue.repo }} forget {{ .ArtifactsIn.backupInfo.KeyValue.snapshotid }}
+            restic -r {{ .ArtifactsIn.backupInfo.KeyValue.repo }} prune
+            restic -r {{ .ArtifactsIn.backupInfo.KeyValue.repo }} snapshots
