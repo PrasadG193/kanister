@@ -8,111 +8,36 @@ actions:
     outputArtifacts:
       backupInfo:
         keyValue:
-          repo: "s3:s3.amazonaws.com/{{ .Profile.Location.Bucket }}/mongodb-replicaset-backups/{{ .StatefulSet.Name }}/rs_backup"
-          snapshotid: "{{ .Phases.backupSnapshot.Output.snapshotid }}"
+          backupIdentifier: "{{ .Phases.backupSnapshot.Output.BackupAllInfo }}"
     phases:
-    - func: PrepareData
+    - func: BackupDataAll
       name: backupSnapshot
       args:
-        image: kanisterio/kanister-tools:0.21.0
         namespace: "{{ .StatefulSet.Namespace }}"
-        volumes:
-          datadir-{{ .StatefulSet.Name }}-0: "/db"
-        command:
-          - bash
-          - -o
-          - errexit
-          - -o
-          - xtrace
-          - -o
-          - pipefail
-          - -c
-          - |
-            set +o xtrace
-            export AWS_SECRET_ACCESS_KEY="{{ .Profile.Credential.KeyPair.Secret }}"
-            export AWS_ACCESS_KEY_ID="{{ .Profile.Credential.KeyPair.ID }}"
-            export RESTIC_PASSWORD=restic-12345
-            set -o xtrace
-
-            # Check if repository is not initialized
-            if ! backup=$(restic -r s3:s3.amazonaws.com/{{ .Profile.Location.Bucket }}/mongodb-replicaset-backups/{{ .StatefulSet.Name }}/rs_backup backup /db --json); then
-                restic -r s3:s3.amazonaws.com/{{ .Profile.Location.Bucket }}/mongodb-replicaset-backups/{{ .StatefulSet.Name }}/rs_backup init
-                backup=$(restic -r s3:s3.amazonaws.com/{{ .Profile.Location.Bucket }}/mongodb-replicaset-backups/{{ .StatefulSet.Name }}/rs_backup backup /db --json)
-            fi
-
-            restic -r s3:s3.amazonaws.com/{{ .Profile.Location.Bucket }}/mongodb-replicaset-backups/{{ .StatefulSet.Name }}/rs_backup snapshots
-            snapshotid=$(echo ${backup} | grep -o "\"snapshot_id\":\"[a-zA-z0-9]*\"" | cut -d ":" -f2 | tr -d '"')
-            kando output snapshotid ${snapshotid}
+        container: "mongodb-replicaset"
+        includePath: /data
+        backupArtifactPrefix: "{{ .Profile.Location.Bucket }}/mongodb-replicaset-backups/{{ .StatefulSet.Name }}/rs_backup"
   restore:
     type: StatefulSet
-    inputArtifactNames:
-      - backupInfo
     phases:
     - func: ScaleWorkload
       name: ShutdownApplication
       args:
         namespace: "{{ .StatefulSet.Namespace }}"
-        kind: statefulset
+        name: "{{ .StatefulSet.Name }}"
+        kind: StatefulSet
         replicas: 0
-    - func: PrepareData
+    - func: RestoreDataAll
       name: restoreFromSnapshot
       args:
-        image: kanisterio/kanister-tools:0.21.0
         namespace: "{{ .StatefulSet.Namespace }}"
-        volumes:
-          datadir-{{ .StatefulSet.Name }}-0: "/db"
-        command:
-          - bash
-          - -o
-          - errexit
-          - -o
-          - xtrace
-          - -o
-          - pipefail
-          - -c
-          - |
-            set +o xtrace
-            export AWS_SECRET_ACCESS_KEY="{{ .Profile.Credential.KeyPair.Secret }}"
-            export AWS_ACCESS_KEY_ID="{{ .Profile.Credential.KeyPair.ID }}"
-            export RESTIC_PASSWORD=restic-12345
-            set -o xtrace
-            
-            restic -r {{ .ArtifactsIn.backupInfo.KeyValue.repo }} snapshots
-            restic -r {{ .ArtifactsIn.backupInfo.KeyValue.repo }} restore {{ .ArtifactsIn.backupInfo.KeyValue.snapshotid }} --target /db --path /db
-
+        image: kanisterio/kanister-tools:0.21.0
+        backupArtifactPrefix: "{{ .Profile.Location.Bucket }}/mongodb-replicaset-backups/{{ .StatefulSet.Name }}/rs_backup"
+        backupInfo: "{{ .ArtifactsIn.backupInfo.KeyValue.backupIdentifier }}"
     - func: ScaleWorkload
-      name: restartPod
-      args:
-        kind: statefulset
-        name: '{{ .StatefulSet.Name }}'
-        namespace: '{{ .StatefulSet.Namespace }}'
-        replicas: 3
-  delete:
-    type: StatefulSet
-    inputArtifactNames:
-      - backupInfo
-    phases:
-    - func: KubeTask
-      name: deleteSnapshot
+      name: StartupApplication
       args:
         namespace: "{{ .StatefulSet.Namespace }}"
-        image: kanisterio/kanister-tools:0.21.0
-        command:
-          - bash
-          - -o
-          - errexit
-          - -o
-          - xtrace
-          - -o
-          - pipefail
-          - -c
-          - |
-            set +o xtrace
-            export AWS_SECRET_ACCESS_KEY="{{ .Profile.Credential.KeyPair.Secret }}"
-            export AWS_ACCESS_KEY_ID="{{ .Profile.Credential.KeyPair.ID }}"
-            export RESTIC_PASSWORD=restic-12345
-            set -o xtrace
-
-            restic -r {{ .ArtifactsIn.backupInfo.KeyValue.repo }} forget {{ .ArtifactsIn.backupInfo.KeyValue.snapshotid }}
-            restic -r {{ .ArtifactsIn.backupInfo.KeyValue.repo }} prune
-            restic -r {{ .ArtifactsIn.backupInfo.KeyValue.repo }} snapshots
+        name: "{{ .StatefulSet.Name }}"
+        kind: StatefulSet
+        replicas: 3
