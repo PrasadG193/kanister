@@ -8,10 +8,10 @@ actions:
     outputArtifacts:
       backupInfo:
         keyValue:
-          backupIdentifier: "{{ .Phases.backupSnapshot.Output.BackupAllInfo }}"
+          backupIdentifier: "{{ .Phases.backupSnapshots.Output.BackupAllInfo }}"
     phases:
     - func: BackupDataAll
-      name: backupSnapshot
+      name: backupSnapshots
       args:
         namespace: "{{ .StatefulSet.Namespace }}"
         container: "mongodb-replicaset"
@@ -28,7 +28,7 @@ actions:
         kind: StatefulSet
         replicas: 0
     - func: RestoreDataAll
-      name: restoreFromSnapshot
+      name: restoreFromSnapshots
       args:
         namespace: "{{ .StatefulSet.Namespace }}"
         image: kanisterio/kanister-tools:0.21.0
@@ -41,3 +41,13 @@ actions:
         name: "{{ .StatefulSet.Name }}"
         kind: StatefulSet
         replicas: 3
+  delete:
+    type: StatefulSet
+    phases:
+    - func: DeleteDataAll
+      name: deleteSnapshots
+      args:
+        namespace: "{{ .StatefulSet.Namespace }}"
+        backupArtifactPrefix: "{{ .Profile.Location.Bucket }}/mongodb-replicaset-backups/{{ .StatefulSet.Name }}/rs_backup"
+        backupInfo: "{{ .ArtifactsIn.backupInfo.KeyValue.backupIdentifier }}"
+        reclaimSpace: true

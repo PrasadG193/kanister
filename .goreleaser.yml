@@ -78,11 +78,6 @@ dockers:
   image_templates:
   - 'kanisterio/mongodb:{{ .Tag }}'
   dockerfile: 'docker/mongodb/Dockerfile'
-  extra_files:
-  - 'docker/mongodb/install.sh'
-  - 'docker/mongodb/90forceyes'
-  - 'docker/mongodb/config'
-  - 'docker/mongodb/gbl_env.sh'
 
 snapshot:
   name_template: '{{ .Tag }}'
