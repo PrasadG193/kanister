@@ -1,0 +1,33 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: docdbtestapp
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: docdbtestapp
+    spec:
+      containers:
+      - name: docdbtestapp
+        image: kanisterio/docdbtest-amd64:0.1.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+          - name: PG_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: dbconfig
+                key: docdb.host
+          - name: PG_USER
+            valueFrom:
+              configMapKeyRef:
+                name: dbconfig
+                key: docdb.user
+          - name: PG_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: dbcreds
+                key: password
