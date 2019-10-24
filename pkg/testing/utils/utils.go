@@ -30,11 +30,12 @@ type RDS struct {
 	Role string
 }
 
-func newAwsConfig(accessID, secretKey, region string) (*aws.Config, *session.Session, string, error) {
+func newAwsConfig(accessID, secretKey, region, sessionToken string) (*aws.Config, *session.Session, string, error) {
 	config := make(map[string]string)
 	config[awsconfig.ConfigRegion] = region
 	config[awsconfig.AccessKeyID] = accessID
 	config[awsconfig.SecretAccessKey] = secretKey
+	config[awsconfig.SessionToken] = sessionToken
 
 	awsConfig, region, role, err := awsconfig.GetConfig(config)
 	if err != nil {
@@ -53,8 +54,8 @@ func newAwsConfig(accessID, secretKey, region string) (*aws.Config, *session.Ses
 }
 
 // NewEC2Client returns ec2 client struct.
-func NewEC2Client(ctx context.Context, accessID, secretKey, region string) (*EC2, error) {
-	conf, s, role, err := newAwsConfig(accessID, secretKey, region)
+func NewEC2Client(ctx context.Context, accessID, secretKey, region, sessionToken string) (*EC2, error) {
+	conf, s, role, err := newAwsConfig(accessID, secretKey, region, sessionToken)
 	if err != nil {
 		return nil, err
 	}
@@ -99,8 +100,8 @@ func (e EC2) DeleteSecurityGroup(ctx context.Context, groupName string) (*ec2.De
 }
 
 // NewRDSClient returns ec2 client struct.
-func NewRDSClient(ctx context.Context, accessID, secretKey, region string) (*RDS, error) {
-	conf, s, role, err := newAwsConfig(accessID, secretKey, region)
+func NewRDSClient(ctx context.Context, accessID, secretKey, region, sessionToken string) (*RDS, error) {
+	conf, s, role, err := newAwsConfig(accessID, secretKey, region, sessionToken)
 	if err != nil {
 		return nil, err
 	}

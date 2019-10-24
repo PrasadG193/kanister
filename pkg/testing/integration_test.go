@@ -109,7 +109,7 @@ func (s *IntegrationSuite) TestRun(c *C) {
 		// Check config
 		err := t.database.GetConfig(ctx)
 		if err != nil {
-			log.Infof("Skipping %s. Reason: %s", name, err.Error())
+			log.Infof("Skipping integration test for %s. Reason: %s", name, err.Error())
 			s.tests[name].skip = true
 			continue
 		}

@@ -22,11 +22,13 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	awsconfig "github.com/kanisterio/kanister/pkg/config/aws"
 	"github.com/kanisterio/kanister/pkg/testing/utils"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	// Initialize pq driver
 	_ "github.com/lib/pq"
@@ -42,6 +44,7 @@ type PostgresDB struct {
 	accessID        string
 	secretKey       string
 	region          string
+	sessionToken    string
 	securityGroupID string
 
 	PostgresData Data
@@ -65,17 +68,25 @@ func NewPostgresDB(cli kubernetes.Interface) (Database, error) {
 
 func (pdb *PostgresDB) GetConfig(ctx context.Context) error {
 	var ok bool
-	pdb.accessID, ok = os.LookupEnv("AWS_ACCESS_KEY_ID")
+
+	pdb.region, ok = os.LookupEnv(awsconfig.Region)
 	if !ok {
-		return fmt.Errorf("Env var AWS_ACCESS_KEY_ID is not set")
+		return fmt.Errorf("Env var %s is not set", awsconfig.Region)
 	}
-	pdb.secretKey, ok = os.LookupEnv("AWS_SECRET_ACCESS_KEY")
-	if !ok {
-		return fmt.Errorf("Env var AWS_SECRET_ACCESS_KEY is not set")
+
+	// If sessionToken is set, accessID and secretKey not required
+	pdb.sessionToken, ok = os.LookupEnv(awsconfig.SessionToken)
+	if ok {
+		return nil
 	}
-	pdb.region, ok = os.LookupEnv("AWS_REGION")
+
+	pdb.accessID, ok = os.LookupEnv(awsconfig.AccessKeyID)
 	if !ok {
-		return fmt.Errorf("Env var AWS_REGION is not set")
+		return fmt.Errorf("Env var %s is not set", awsconfig.AccessKeyID)
+	}
+	pdb.secretKey, ok = os.LookupEnv(awsconfig.SecretAccessKey)
+	if !ok {
+		return fmt.Errorf("Env var %s is not set", awsconfig.SecretAccessKey)
 	}
 	return nil
 }
@@ -94,7 +105,7 @@ func (pdb *PostgresDB) Install(ctx context.Context, nsName string) error {
 	}
 
 	// Create ec2 client
-	ec2, err := utils.NewEC2Client(ctx, pdb.accessID, pdb.secretKey, pdb.region)
+	ec2, err := utils.NewEC2Client(ctx, pdb.accessID, pdb.secretKey, pdb.region, pdb.sessionToken)
 	if err != nil {
 		return err
 	}
@@ -115,7 +126,7 @@ func (pdb *PostgresDB) Install(ctx context.Context, nsName string) error {
 	}
 
 	// Create rds client
-	rds, err := utils.NewRDSClient(ctx, pdb.accessID, pdb.secretKey, pdb.region)
+	rds, err := utils.NewRDSClient(ctx, pdb.accessID, pdb.secretKey, pdb.region, pdb.sessionToken)
 	if err != nil {
 		return err
 	}
@@ -197,7 +208,7 @@ func (pdb PostgresDB) CreateConfig(ctx context.Context, ns string) error {
 
 func (pdb PostgresDB) Remove(ctx context.Context, nsName string) error {
 	// Create rds client
-	rds, err := utils.NewRDSClient(ctx, pdb.accessID, pdb.secretKey, pdb.region)
+	rds, err := utils.NewRDSClient(ctx, pdb.accessID, pdb.secretKey, pdb.region, pdb.sessionToken)
 	if err != nil {
 		log.Errorf("Failed to create rds client: %s. You may need to delete RDS resources manually", err.Error())
 		return err
@@ -218,7 +229,7 @@ func (pdb PostgresDB) Remove(ctx context.Context, nsName string) error {
 	}
 
 	// Create ec2 client
-	ec2, err := utils.NewEC2Client(ctx, pdb.accessID, pdb.secretKey, pdb.region)
+	ec2, err := utils.NewEC2Client(ctx, pdb.accessID, pdb.secretKey, pdb.region, pdb.sessionToken)
 	if err != nil {
 		log.Errorf("Failed to ec2 rds client: %s. You may need to delete EC2 resources manually", err.Error())
 		return err
