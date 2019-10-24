@@ -54,30 +54,30 @@ type PostgresData struct {
 }
 
 func NewPostgresDB(cli kubernetes.Interface) (Database, error) {
-	secretKey, ok := os.LookupEnv("AWS_SECRET_ACCESS_KEY")
-	if !ok {
-		return nil, fmt.Errorf("Env var AWS_SECRET_ACCESS_KEY is not set")
-	}
-	accessID, ok := os.LookupEnv("AWS_ACCESS_KEY_ID")
-	if !ok {
-		return nil, fmt.Errorf("Env var AWS_ACCESS_KEY_ID is not set")
-	}
-	region, ok := os.LookupEnv("AWS_REGION")
-	if !ok {
-		return nil, fmt.Errorf("Env var AWS_REGION is not set")
-	}
-
 	return &PostgresDB{
-		cli:       cli,
-		id:        "test-postgresql-instance",
-		dbname:    "postgres",
-		username:  "master",
-		password:  "secret99",
-		accessID:  accessID,
-		secretKey: secretKey,
-		region:    region,
-		//PostgresData: &PostgresData{},
+		cli:      cli,
+		id:       "test-postgresql-instance",
+		dbname:   "postgres",
+		username: "master",
+		password: "secret99",
 	}, nil
+}
+
+func (pdb *PostgresDB) GetConfig(ctx context.Context) error {
+	var ok bool
+	pdb.accessID, ok = os.LookupEnv("AWS_ACCESS_KEY_ID")
+	if !ok {
+		return fmt.Errorf("Env var AWS_ACCESS_KEY_ID is not set")
+	}
+	pdb.secretKey, ok = os.LookupEnv("AWS_SECRET_ACCESS_KEY")
+	if !ok {
+		return fmt.Errorf("Env var AWS_SECRET_ACCESS_KEY is not set")
+	}
+	pdb.region, ok = os.LookupEnv("AWS_REGION")
+	if !ok {
+		return fmt.Errorf("Env var AWS_REGION is not set")
+	}
+	return nil
 }
 
 func (pdb *PostgresDB) Install(ctx context.Context, nsName string) error {
@@ -199,26 +199,28 @@ func (pdb PostgresDB) Remove(ctx context.Context, nsName string) error {
 	// Create rds client
 	rds, err := utils.NewRDSClient(ctx, pdb.accessID, pdb.secretKey, pdb.region)
 	if err != nil {
+		log.Errorf("Failed to create rds client: %s. You may need to delete RDS resources manually", err.Error())
 		return err
 	}
 
 	// Delete rds instance
 	log.Info("PostgresDB: deleting rds instance")
 	_, err = rds.DeleteDBInstance(ctx, pdb.id)
-	if err != nil {
+	if err == nil {
+		// Waiting for rds to be deleted
+		log.Info("PostgresDB: Waiting for rds to be deleted")
+		err = rds.WaitUntilDBInstanceDeleted(ctx, pdb.id)
+		if err != nil {
+			log.Errorf("Failed to wait for rds instance %s till delete succeeds: %s", pdb.id, err.Error())
+		}
+	} else {
 		log.Errorf("Failed to delete rds instance %s: %s. You may need to delete it manually", pdb.id, err.Error())
-	}
-
-	// Waiting for rds to be deleted
-	log.Info("PostgresDB: Waiting for rds to be deleted")
-	err = rds.WaitUntilDBInstanceDeleted(ctx, pdb.id)
-	if err != nil {
-		log.Errorf("Failed to wait for rds instance %s till delete succeeds: %s", pdb.id, err.Error())
 	}
 
 	// Create ec2 client
 	ec2, err := utils.NewEC2Client(ctx, pdb.accessID, pdb.secretKey, pdb.region)
 	if err != nil {
+		log.Errorf("Failed to ec2 rds client: %s. You may need to delete EC2 resources manually", err.Error())
 		return err
 	}
 

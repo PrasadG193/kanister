@@ -23,18 +23,22 @@ const (
 	SelfHostedDB DBType = "selfHosted"
 )
 
+// Instance contains Database instance
 type Instance struct {
 	Database
 	Type DBType
 }
 
+// Database interface for managed or self hosted DBs
 type Database interface {
+	GetConfig(context.Context) error
 	Install(context.Context, string) error
 	CreateConfig(context.Context, string) error
 	Remove(context.Context, string) error
 	Data() Data
 }
 
+// Data interface to do read/write operations on Database
 type Data interface {
 	// Ping test connection with db
 	Ping(context.Context) error

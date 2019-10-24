@@ -24,7 +24,7 @@ type Kanister interface {
 	// Install creates Kanister CRs profiles and blueprint
 	Install(context.Context, string) error
 	// Remove deletes Kanister CRs like profile and blueprint
-	Remove(context.Context) error
+	Remove(context.Context, string) error
 	// Actionset returns actionset specs to Backup the data
 	ActionSet() *crv1alpha1.ActionSet
 }

@@ -192,12 +192,10 @@ func (app PostgresApp) Install(ctx context.Context, controllerNs string) error {
 		},
 	}
 	bp, err = app.crCli.Blueprints(controllerNs).Create(bp)
-
-	// Create Actionset
 	return nil
 }
 
-func (app PostgresApp) Remove(ctx context.Context) error {
+func (app PostgresApp) Remove(ctx context.Context, ns string) error {
 	return nil
 }
 

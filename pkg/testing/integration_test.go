@@ -41,25 +41,25 @@ type test struct {
 	database    db.Instance
 	application app.Kanister
 	namespace   string
+	skip        bool
 }
 
 type IntegrationSuite struct {
 	cli          kubernetes.Interface
 	crCli        crclient.CrV1alpha1Interface
-	tests        map[string]test
+	tests        map[string]*test
 	cancel       context.CancelFunc
 	controllerNs string
 }
 
 var _ = Suite(&IntegrationSuite{
-	tests: make(map[string]test),
+	tests:        make(map[string]*test),
+	controllerNs: "e2e-test",
 })
 
 func (s *IntegrationSuite) SetUpSuite(c *C) {
 	ctx := context.Background()
 	ctx, s.cancel = context.WithCancel(ctx)
-
-	s.controllerNs = "e2e-test"
 
 	// Instantiate Client SDKs
 	cfg, err := kube.LoadConfig()
@@ -73,11 +73,12 @@ func (s *IntegrationSuite) SetUpSuite(c *C) {
 	c.Assert(err, IsNil)
 
 	// Add new tests in the map
-	s.tests = map[string]test{
-		"rds-postgres": test{
+	s.tests = map[string]*test{
+		"rds-postgres": &test{
 			database:    db.Instance{Type: db.ManagedDB, Database: postgresDB},
 			application: app.NewPostgresApp(s.cli, s.crCli, "e2e-rds-postgres"),
 			namespace:   "e2e-rds-postgres",
+			skip:        false,
 		},
 	}
 
@@ -89,22 +90,6 @@ func (s *IntegrationSuite) SetUpSuite(c *C) {
 	}
 	_, err = s.cli.CoreV1().Namespaces().Create(ns)
 	c.Assert(err, IsNil)
-
-	for name, t := range s.tests {
-		// Create a new test namespace
-		log.Infof("Creating DB for %s", name)
-		c.Assert(err, IsNil)
-
-		// install db
-		err := t.database.Install(ctx, t.namespace)
-		c.Assert(err, IsNil)
-
-		// create configmap and secret for in case of Managed DB
-		if t.database.Type == db.ManagedDB {
-			err := t.database.CreateConfig(ctx, t.namespace)
-			c.Assert(err, IsNil)
-		}
-	}
 
 	// Start the controller
 	err = resource.CreateCustomResources(ctx, cfg)
@@ -120,10 +105,27 @@ func (s *IntegrationSuite) TestRun(c *C) {
 
 	// Exec methods
 	for name, t := range s.tests {
-		log.Infof("Connection info for %s", name)
+		log.Infof("Running e2e integration test for %s", name)
+		// Check config
+		err := t.database.GetConfig(ctx)
+		if err != nil {
+			log.Infof("Skipping %s. Reason: %s", name, err.Error())
+			s.tests[name].skip = true
+			continue
+		}
+
+		// Install db
+		err = t.database.Install(ctx, t.namespace)
+		c.Assert(err, IsNil)
+
+		// Create configmap and secret for in case of Managed DB
+		if t.database.Type == db.ManagedDB {
+			err := t.database.CreateConfig(ctx, t.namespace)
+			c.Assert(err, IsNil)
+		}
 
 		// Install Application
-		err := t.application.Install(ctx, s.controllerNs)
+		err = t.application.Install(ctx, s.controllerNs)
 		c.Assert(err, IsNil)
 
 		// Check connection
@@ -165,8 +167,6 @@ func (s *IntegrationSuite) TestRun(c *C) {
 
 		// Delete snapshots
 		s.createActionset(ctx, pas, t.namespace, "delete", c)
-		err = t.application.Remove(ctx)
-		c.Assert(c, IsNil)
 	}
 }
 
@@ -215,8 +215,11 @@ func (s *IntegrationSuite) TearDownSuite(c *C) {
 	defer cancel()
 
 	for name, t := range s.tests {
-		log.Infof("Deleting DB for %s", name)
-		t.database.Remove(ctx, t.namespace)
+		if !t.skip {
+			log.Infof("Deleting DB for %s", name)
+			t.database.Remove(ctx, t.namespace)
+			t.application.Remove(ctx, t.namespace)
+		}
 		if len(t.namespace) != 0 {
 			s.cli.CoreV1().Namespaces().Delete(t.namespace, nil)
 		}

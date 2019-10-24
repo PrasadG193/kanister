@@ -1,0 +1,101 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2019-10-23T06:51:21Z"
+    generateName: test-deployment-ddsmp-685fc65bc9-
+    labels:
+      app: fake-app
+      pod-template-hash: 685fc65bc9
+    name: test-deployment-ddsmp-685fc65bc9-qp6gw
+    namespace: e2e-test-55wwq
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: test-deployment-ddsmp-685fc65bc9
+      uid: 5b20d0f9-23f8-4188-b412-e0f7693636f1
+    resourceVersion: "114732"
+    selfLink: /api/v1/namespaces/e2e-test-55wwq/pods/test-deployment-ddsmp-685fc65bc9-qp6gw
+    uid: cac2d84a-b9de-45d7-be6f-b9412583d4eb
+  spec:
+    containers:
+    - args:
+      - -f
+      - /dev/null
+      command:
+      - tail
+      image: kanisterio/kanister-tools:0.21.0
+      imagePullPolicy: IfNotPresent
+      name: test-container
+      resources: {}
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-c5qnl
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kind-control-plane
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: default-token-c5qnl
+      secret:
+        defaultMode: 420
+        secretName: default-token-c5qnl
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2019-10-23T06:51:21Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2019-10-23T06:51:25Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2019-10-23T06:51:25Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2019-10-23T06:51:21Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: containerd://58eb2efa7b67f7a98b0806d0e23f6f68a2beddf4251e715d1f20684a431017b3
+      image: docker.io/kanisterio/kanister-tools:0.21.0
+      imageID: docker.io/kanisterio/kanister-tools@sha256:7cd3f5397ab763fc5bec635afbdbbc2546312e7e0b133329ee320d2db50b2a88
+      lastState: {}
+      name: test-container
+      ready: true
+      restartCount: 0
+      state:
+        running:
+          startedAt: "2019-10-23T06:51:24Z"
+    hostIP: 172.17.0.2
+    phase: Running
+    podIP: 10.244.0.61
+    qosClass: BestEffort
+    startTime: "2019-10-23T06:51:21Z"
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""
