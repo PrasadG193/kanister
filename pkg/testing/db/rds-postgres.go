@@ -105,7 +105,7 @@ func (pdb *PostgresDB) Install(ctx context.Context, nsName string) error {
 	}
 
 	// Create ec2 client
-	ec2, err := utils.NewEC2Client(ctx, pdb.accessID, pdb.secretKey, pdb.region, pdb.sessionToken)
+	ec2, err := utils.NewEC2Client(ctx, pdb.accessID, pdb.secretKey, pdb.region, pdb.sessionToken, "")
 	if err != nil {
 		return err
 	}
@@ -126,7 +126,7 @@ func (pdb *PostgresDB) Install(ctx context.Context, nsName string) error {
 	}
 
 	// Create rds client
-	rds, err := utils.NewRDSClient(ctx, pdb.accessID, pdb.secretKey, pdb.region, pdb.sessionToken)
+	rds, err := utils.NewRDSClient(ctx, pdb.accessID, pdb.secretKey, pdb.region, pdb.sessionToken, "")
 	if err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func (pdb PostgresDB) CreateConfig(ctx context.Context, ns string) error {
 
 func (pdb PostgresDB) Remove(ctx context.Context, nsName string) error {
 	// Create rds client
-	rds, err := utils.NewRDSClient(ctx, pdb.accessID, pdb.secretKey, pdb.region, pdb.sessionToken)
+	rds, err := utils.NewRDSClient(ctx, pdb.accessID, pdb.secretKey, pdb.region, pdb.sessionToken, "")
 	if err != nil {
 		log.Errorf("Failed to create rds client: %s. You may need to delete RDS resources manually", err.Error())
 		return err
@@ -229,7 +229,7 @@ func (pdb PostgresDB) Remove(ctx context.Context, nsName string) error {
 	}
 
 	// Create ec2 client
-	ec2, err := utils.NewEC2Client(ctx, pdb.accessID, pdb.secretKey, pdb.region, pdb.sessionToken)
+	ec2, err := utils.NewEC2Client(ctx, pdb.accessID, pdb.secretKey, pdb.region, pdb.sessionToken, "")
 	if err != nil {
 		log.Errorf("Failed to ec2 rds client: %s. You may need to delete EC2 resources manually", err.Error())
 		return err

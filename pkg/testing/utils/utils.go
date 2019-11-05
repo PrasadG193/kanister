@@ -5,7 +5,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/rds"
@@ -30,32 +29,30 @@ type RDS struct {
 	Role string
 }
 
-func newAwsConfig(accessID, secretKey, region, sessionToken string) (*aws.Config, *session.Session, string, error) {
+func newAwsConfig(ctx context.Context, accessID, secretKey, region, sessionToken, role string) (*aws.Config, *session.Session, error) {
 	config := make(map[string]string)
 	config[awsconfig.ConfigRegion] = region
 	config[awsconfig.AccessKeyID] = accessID
 	config[awsconfig.SecretAccessKey] = secretKey
 	config[awsconfig.SessionToken] = sessionToken
+	config[awsconfig.ConfigRole] = role
 
-	awsConfig, region, role, err := awsconfig.GetConfig(config)
+	awsConfig, region, err := awsconfig.GetConfig(ctx, config)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, err
 	}
 
 	s, err := session.NewSession(awsConfig)
 	if err != nil {
-		return nil, nil, "", errors.Wrap(err, "Failed to create session for EFS")
+		return nil, nil, errors.Wrap(err, "Failed to create session for EFS")
 	}
 	creds := awsConfig.Credentials
-	if role != "" {
-		creds = stscreds.NewCredentials(s, role)
-	}
-	return awsConfig.WithMaxRetries(maxRetries).WithRegion(region).WithCredentials(creds), s, role, nil
+	return awsConfig.WithMaxRetries(maxRetries).WithRegion(region).WithCredentials(creds), s, nil
 }
 
 // NewEC2Client returns ec2 client struct.
-func NewEC2Client(ctx context.Context, accessID, secretKey, region, sessionToken string) (*EC2, error) {
-	conf, s, role, err := newAwsConfig(accessID, secretKey, region, sessionToken)
+func NewEC2Client(ctx context.Context, accessID, secretKey, region, sessionToken, role string) (*EC2, error) {
+	conf, s, err := newAwsConfig(ctx, accessID, secretKey, region, sessionToken, role)
 	if err != nil {
 		return nil, err
 	}
@@ -100,8 +97,8 @@ func (e EC2) DeleteSecurityGroup(ctx context.Context, groupName string) (*ec2.De
 }
 
 // NewRDSClient returns ec2 client struct.
-func NewRDSClient(ctx context.Context, accessID, secretKey, region, sessionToken string) (*RDS, error) {
-	conf, s, role, err := newAwsConfig(accessID, secretKey, region, sessionToken)
+func NewRDSClient(ctx context.Context, accessID, secretKey, region, sessionToken, role string) (*RDS, error) {
+	conf, s, err := newAwsConfig(ctx, accessID, secretKey, region, sessionToken, role)
 	if err != nil {
 		return nil, err
 	}
