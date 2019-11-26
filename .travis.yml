@@ -7,10 +7,6 @@ services:
 # go-specifc code is run in build container.
 language: c
 
-branches:
-  only:
-  - master
-
 cache:
   directories:
   - .go/pkg/mod/cache
