@@ -1,33 +1,29 @@
 sudo: required
-
 services:
 - docker
-
-# Selecting C as the language keeps the container to a minimum footprint. All
-# go-specifc code is run in build container.
 language: c
-
 cache:
   directories:
-  - .go/pkg/mod/cache
-  - .go/cache
-
+  - ".go/pkg/mod/cache"
+  - ".go/cache"
 jobs:
   include:
-    - stage: test
-      script:
-      - make docs
-    - stage: test
-      install:
-      - make go-mod-download
-      before_script:
-      - make start-kind
-      script:
-      - make build
-      - make test
-      - make integration-test
-      before_cache:
-      - sudo chown -R travis:travis ./.go
-      after_script:
-      - make stop-kind
-
+  - stage: test
+    script:
+    - make docs
+  - stage: test
+    install:
+    - make go-mod-download
+    before_script:
+    - make start-kind
+    script:
+    - make integration-test
+    before_cache:
+    - sudo chown -R travis:travis ./.go
+    after_script:
+    - make stop-kind
+env:
+  global:
+  - secure: H51Mo3lJ7p5KpvpnjICH6FLyRSCYO4PLUytdanWEgDPmI4RYW/dK8caXh2iXPsSItK5mKYmu98H12LY7B7Vq4VCdTj71e1FhZx5MTHTPbD4/n5h8FUWGwj3FI/KFv+92mP9Hx6izN6JMA7XQnTRuly23GQkeI6wqvUVG33qeuVC+c5uDFtDyyse/RkP1FUtnGClUaezbFmGuLvhwO/WjPQmx/qypyAvBHik5GvejDd/vtrHqUF1Rdic/NjlnlhywL9gc9H3mgm8L1eiMB8DpHZTBVwW19kF1gCMXvJ1jZekXCHvmKIWQbcw7H8NvgeJHQjykFhnllKBRMaCC9t1dLmTvuEhg2D8B1PSm40hVdWQ+DuxEmWiNu9kSZ95g1nQSCTTGRkT8rhXmMMopz6dhmC66aiNhbyNzSqn+quk6gaOm4kAFg8wxJQ0xOJFOhU40CUgqt4xdGZtPLYnXWYFRMa3PB932cEJxKjnt0PtD4SZo7fwHcJqLqwewauUjNTyNm3HKErCVBADgLbCmGNNtqa6+9K8QWj73+4J1UlhMIuug5Dpy3McqO5p1Ti76u+YVZ/AgzU4r3PL4m/6wkuQsKt+m38vhs3vyVg6y0geV0vNnWhfOTLkim/CKQ7mII/+Q0KvMdCctoZs7MYQ13wwpsN0FJOxGcaek+cCSoulIZO0=
+  - secure: Sjgv0oxlVycmFk37ejgeLD/5mx5aqZxouYhHo7V6v5T9BKxszwzh3wWe156hupxrC8FybrHU0yVDt4c7h/5kl58QqRCkq5wR+IKPFvTxuO4QlV8jJkIHlF6HTM9gtZTEBPtyEVHX50o9b+8iHvpWH/uv7ei3LPhxmNvbF3hCsuVbDH1qlfIYlvNzkRPyyuK6/F23CSY3XGY0wddCZ+V5nplDFmvSNe+p73xTVcdDU6eWBR3omXkTXpX/lg9AbilCNtqvjODiS+hVaaQXc+cHIPP6EBFWJU4H3QjTaPrkvcmIpEjDSexUUWreYjN894cnIi0g2VDIqHrqMIxGCrTd+eGx07KBs5zkI8sxOre7Fka74DMxSutqFjfsGWX2Is5UvTjJGN3Tti8AkRaMA3IR2Q+s36YI2Ig4wBalIMfsoS5vD/uUYl1gKR0m/1W8b1f2jOJVH8xelZzv2K4mn6ZMV8esi/1G3Tq0Ldwg3CPhYCYsF+xwcBP0P0zr3I95+ePj861k/eVGnSIGJ2gcvwxzrRnUampg1HA2AZ5XjHPt1r8v9PEyVtXo/t/b99sUI4TNlLMNWQDk9rGJUSB415G0ckKZd8YhVAmqEvoqgDQ2+wfErfv0O0BQezGrh5nBCrDYwiyGs1XXF9pvR36jIQJZmZC+BIVA5TC7K5ZqoB/g7yc=
+  - secure: hXnfAXiadRMSd5wAbFXr8sBL/5eOGtlsSnuhzT8ap+b2R3vu7x4kOz8/9cg/HIV57G+LXhmCGpPEtHjuuxf+YPGnuLOPsyFgXPLD8NtoHKDbjCvlLyxJlqHkzXPWg5rnj+dyklCSQ/J/UOMQYpYHAyzMSgWIemZEyc+lUr9JpMfz9/Cqr3N9s4IaZVy0Yi/oQKnC8gcyd+8M1JGcG62+9cSBz3J1lN5IvRv3IhV8WF+Y9VnnI+4U49d3XFH9Cu+SoVZ4J11uQJ6wqF7vBvHJi/OVkwg2XMt9znuvqTOhFagCACTG+Aj0/r4ssnHPRoiZWI60cuP1FAn5HwSJnGSusAq1SmMYvkgFztIDXdz8teyCeJPSLmeulpgotLEmiCzR7PVFYRfilH24W2haik86+x3KUOpDOYlUy2txEfHG4DMoWPDRMpnifTcaqsJzJRg+S1t2cbJ2JgaZpe7uYp8PZ8BwY+gwtW0vfVyFj3RvgNJTQoKHLqc/X2iBkFQGoiASNJa7XOxLBw85NW918KVpIusfBSAQ9qMayShcwT4bH5Ym5oU4qYP8IlMMlnh4PyWX1b+5jmiHAneSqGr2PegvlPSN1nBF5w1P0GS+CPuz7lK4o8ouVCa25UoWqjocSnnzq3LzjZs53ztIown6oqfFbEqAJ0ARciO2D+hj7bghPCY=
