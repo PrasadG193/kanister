@@ -64,13 +64,13 @@ type IntegrationSuite struct {
 // INTEGRATION TEST APPLICATIONS
 
 // rds-postgres app
-var _ = Suite(&IntegrationSuite{
-	name:      "rds-postgres",
-	namespace: "rds-postgres-test",
-	app:       app.NewRDSPostgresDB("rds-postgres"),
-	bp:        app.NewBlueprint("rds-postgres"),
-	profile:   newSecretProfile("", "", ""),
-})
+//var _ = Suite(&IntegrationSuite{
+//	name:      "rds-postgres",
+//	namespace: "rds-postgres-test",
+//	app:       app.NewRDSPostgresDB("rds-postgres"),
+//	bp:        app.NewBlueprint("rds-postgres"),
+//	profile:   newSecretProfile("", "", ""),
+//})
 
 // pitr-postgresql app
 var _ = Suite(&IntegrationSuite{

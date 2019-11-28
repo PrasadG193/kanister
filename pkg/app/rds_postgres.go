@@ -97,7 +97,7 @@ func (pdb *RDSPostgresDB) Init(ctx context.Context) error {
 	if !ok {
 		return fmt.Errorf("Env var %s is not set", awsconfig.SecretAccessKey)
 	}
-	return nil
+	return errors.New("Skip")
 }
 
 func (pdb *RDSPostgresDB) Install(ctx context.Context, ns string) error {
