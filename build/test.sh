@@ -58,8 +58,8 @@ fi
 echo "Running tests:"
 if [[ -n "${TEST_INTEGRATION+x}" ]]; then
     pushd ${INTEGRATION_TEST_DIR}
-    #TAGS="-tags=integration -timeout 50m -check.suitep ${DOP}"
-    TAGS="-tags=integration -timeout 50m"
+    TAGS="-tags=integration -timeout 50m -check.suitep ${DOP}"
+    #TAGS="-tags=integration -timeout 50m"
     TARGETS="."
 fi
 
